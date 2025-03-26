@@ -1,4 +1,7 @@
 using LinearAlgebra
+using Printf
+using Plots
+using Statistics
 
 function movavg(x, y, n)
     N = length(x) - 1
@@ -7,8 +10,13 @@ function movavg(x, y, n)
     for i in 1:n
         A[:, i] = x[i:(N-n+1+i)]
     end
+
+    println("n = $n, cond(A) = $(cond(A))")
+
     y_target = Float64.(y[n:end]) # truncate the vector y to fit the dimensions that can be predicted
 
+    # Aplus = pinv(A)
+    # return Aplus * y_target'
     return A \ y_target
 end
 
@@ -36,13 +44,33 @@ function main()
     test_x = parse.(Float64, split(test_lines[2]))
     test_y = parse.(Float64, split(test_lines[3]))
 
+    println("n\tTrain Norm\tTrain MSE\tTest Norm\tTest MSE")
     for n in [1, 2, 3, 5, 10]
         h = movavg(train_x, train_y, n)
         
-        y_pred = prediction(test_x, h)
+        # Training set predictions and errors
+        y_train_pred = prediction(train_x, h)
+        train_y_valid = train_y[n:end]  # Align with predictable indices
+        train_error = y_train_pred - train_y_valid
+        train_norm = norm(train_error)
+        train_mse = mean(train_error.^2)  # MSE = average squared error
 
-        println("Prediction norm: ", norm(y_pred - test_y[n:end]))
+        # Test set predictions and errors
+        y_test_pred = prediction(test_x, h)
+        test_y_valid = test_y[n:end]
+        test_error = y_test_pred - test_y_valid
+        test_norm = norm(test_error)
+        test_mse = mean(test_error.^2)
+
+        # Formatted output
+        Printf.@printf("%d\t%.2f\t\t%.4f\t\t%.2f\t\t%.4f\n",
+                n, train_norm, train_mse, test_norm, test_mse)
     end
+
+    h_n5 = movavg(train_x, train_y, 5)
+    h_n10 = movavg(train_x, train_y, 10)
+    plot(h_n5, label = "n = 5", title = "Coefficient Magnitudes")
+    plot!(h_n10, label = "n = 10")
 end
 
 main()
